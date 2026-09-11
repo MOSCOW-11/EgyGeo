@@ -30,11 +30,10 @@ api_key = st.sidebar.text_input("أدخل مفتاح Google Gemini API:", type="
 
 if not api_key:
     st.title("EgyGeo 🔎 | نظام التحليل الجغرافي المصري")
-    st.warning("⚠️ يرجى إدخال مفتاح الـ API (API Key) في القائمة الجانبية لتشغيل محرك الذكاء الاصطناعي الحقيقي.")
+    st.warning("⚠️ يرجى إدخال مفتاح الـ API في القائمة الجانبية لتشغيل محرك الذكاء الاصطناعي الحقيقي.")
     st.info("💡 يمكنك جلب مفتاح مجاني بسهولة من موقع Google AI Studio.")
     st.stop()
 
-# إعداد الاتصال بموديل جيميني
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
@@ -84,7 +83,6 @@ if uploaded_image is not None:
                 
                 st.success("✅ تم تحليل الصورة بنجاح بواسطة الذكاء الاصطناعي الحقيقي!")
                 
-                # عرض التقرير الاستخباراتي
                 st.markdown("### 📊 تقرير التحليل البصري الاستخباراتي:")
                 st.info(result.get("details", "لا توجد تفاصيل متاحة."))
                 
@@ -93,9 +91,8 @@ if uploaded_image is not None:
                 conf = result.get("confidence_score", 0)
                 
                 st.metric(label="🎯 المحافظة المستخلصة", value=gov, delta=f"نسبة ثقة: {conf}%")
-                st.write(گف := f"**المدينة / المنطقة المقترحة:** {city}")
+                st.write(f"**المدينة / المنطقة المقترحة:** {city}")
                 
-                # الرسم البياني للمحافظات
                 st.markdown("### 📈 مؤشرات ترجيح المحافظات المصرية:")
                 top_govs = result.get("top_governorates", {gov: conf})
                 
@@ -113,11 +110,9 @@ if uploaded_image is not None:
                 
                 st.divider()
                 
-                # رابط خرائط جوجل الذكي
                 maps_query = result.get("google_maps_query", "Egypt")
                 maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
                 st.markdown(f'<a href="{maps_url}" target="_blank"><button style="background-color:#00ffcc; color:#0e1117; padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">فتح الموقع المستخلص على Google Maps 🌍</button></a>', unsafe_allow_html=True)
 
             except Exception as e:
                 st.error(f"حدث خطأ أثناء تحليل الصورة بواسطة الذكاء الاصطناعي: {e}")
-                st.text(fاستجابة الخام: {response.text if 'response' in locals() else 'لا توجد استجابة'})
