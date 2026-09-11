@@ -1,14 +1,14 @@
 import streamlit as st
-import random
-import string
+import google.generativeai as genai
+from PIL import Image
 import plotly.express as px
-import time
+import json
 
 # ==========================================
-# 1. إعدادات الصفحة وتصميم الواجهة
+# 1. إعدادات الصفحة والواجهة
 # ==========================================
 st.set_page_config(
-    page_title="EgyGeo 🔎 | نظام التحليل الجغرافي",
+    page_title="EgyGeo 🔎 | نظام التحليل الجغرافي الذكي",
     page_icon="👁️",
     layout="wide"
 )
@@ -23,150 +23,101 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. إدارة الأكواد والرصيد
+# 2. إدخال مفتاح الـ API والتحقق
 # ==========================================
-def init_codes():
-    if "codes_db" not in st.session_state:
-        codes = {}
-        characters = string.ascii_uppercase + string.digits
-        while len(codes) < 50:
-            middle_part = ''.join(random.choices(characters, k=8))
-            code = f"M{middle_part}EG"
-            if code not in codes:
-                codes[code] = 5
-        st.session_state["codes_db"] = codes
+st.sidebar.header("🔑 إعدادات الاتصال")
+api_key = st.sidebar.text_input("أدخل مفتاح Google Gemini API:", type="password")
 
-init_codes()
+if not api_key:
+    st.title("EgyGeo 🔎 | نظام التحليل الجغرافي المصري")
+    st.warning("⚠️ يرجى إدخال مفتاح الـ API (API Key) في القائمة الجانبية لتشغيل محرك الذكاء الاصطناعي الحقيقي.")
+    st.info("💡 يمكنك جلب مفتاح مجاني بسهولة من موقع Google AI Studio.")
+    st.stop()
+
+# إعداد الاتصال بموديل جيميني
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # ==========================================
-# 3. بوابة الدخول (شاشة الحماية)
+# 3. الواجهة الرئيسية وتحليل الصور الحقيقي
 # ==========================================
-def check_access():
-    if "authenticated_code" not in st.session_state:
-        st.session_state["authenticated_code"] = None
+st.title("EgyGeo 🔎 | محرك التحليل الجغرافي المتقدم (Live AI)")
+st.write("ارفع صورة الشارع أو المعلم المصري لتطبيق مرحلتي التحليل البصري واستخراج الموقع الجغرافي بدقة.")
+st.divider()
 
-    current_code = st.session_state["authenticated_code"]
+uploaded_image = st.file_uploader("قم برفع الصورة الحقيقية هنا (JPG, PNG)", type=["jpg", "png", "jpeg"])
+
+if uploaded_image is not None:
+    image = Image.open(uploaded_image)
+    st.image(image, caption="الصورة المراد تحليلها", use_container_width=True)
     
-    if not current_code or st.session_state["codes_db"].get(current_code, 0) <= 0:
-        if current_code and st.session_state["codes_db"].get(current_code, 0) <= 0:
-            st.error("⚠️ نفد رصيد عمليات الفحص لهذا الكود!")
-            st.session_state["authenticated_code"] = None
-
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.image(
-                "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?q=80&w=1000&auto=format&fit=crop",
-                caption="EgyGeo Geolocation & Intelligence",
-                use_container_width=True
-            )
-            st.markdown("<h1 style='text-align: center;'>EgyGeo 🔎</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #a1a1aa;'>نظام التحليل الجغرافي والبيئي الذكي</p>", unsafe_allow_html=True)
-            
-            user_key = st.text_input("أدخل مفتاح الوصول الخاص بك (مثال: انسخ أي كود من الـ Sidebar لو متاح أو جرب التجربة مباشرة):", type="password")
-            
-            # زر دخول سريع للتجربة بدون كود معقد
-            if st.button("دخول تجريبي سريع ⚡", use_container_width=True):
-                st.session_state["authenticated_code"] = "M-DEMO-EG"
-                st.session_state["codes_db"]["M-DEMO-EG"] = 10
-                st.rerun()
-
-            if st.button("تفعيل الكود", use_container_width=True):
-                db = st.session_state["codes_db"]
-                if user_key in db:
-                    if db[user_key] > 0:
-                        st.session_state["authenticated_code"] = user_key
-                        st.success("تم تفعيل الكود بنجاح!")
-                        st.rerun()
-                    else:
-                        st.error("هذا الكود استنفد بالكامل.")
-                else:
-                    st.error("مفتاح الوصول غير صحيح!")
-        return False
-    
-    return True
-
-# ==========================================
-# 4. الواجهة الرئيسية وتحليل البيانات
-# ==========================================
-def main_interface():
-    # إنشاء كود تجريبي لو مش موجود في الداتا بيز
-    if "M-DEMO-EG" not in st.session_state["codes_db"]:
-        st.session_state["codes_db"]["M-DEMO-EG"] = 10
-
-    active_code = st.session_state["authenticated_code"]
-    remaining_uses = st.session_state["codes_db"].get(active_code, 5)
-
-    with st.sidebar:
-        st.header("لوحة التحكم EgyGeo 📊")
-        st.code(active_code, language="text")
-        st.info(f"⚡ المحاولات المتبقية: **{remaining_uses}**")
-        st.divider()
-        st.write("💡 **نصيحة تجريبية:** جرب رفع أي صورة شوارع مصرية واضغط زر الفحص لاختبار النظام.")
-        if st.button("خروج 🚪", use_container_width=True):
-            st.session_state["authenticated_code"] = None
-            st.rerun()
-
-    st.title("EgyGeo 🔎 | محرك التحليل الجغرافي المتقدم")
-    st.write("ارفع صورة الشارع أو المسطح المائي لاختبار مرحلة التحليل البصري والجغرافي.")
-    st.divider()
-
-    uploaded_image = st.file_uploader("قم برفع الصورة هنا (JPG, PNG)", type=["jpg", "png", "jpeg"])
-
-    if uploaded_image is not None:
-        st.image(uploaded_image, caption="الصورة المراد تحليلها", use_container_width=True)
+    if st.button("🚀 بدء تحليل المرحلتين بالذكاء الاصطناعي", use_container_width=True):
         
-        if st.button("🚀 بدء تحليل المرحلتين (Stage 1 & Stage 2)", use_container_width=True):
-            if remaining_uses > 0:
-                st.session_state["codes_db"][active_code] -= 1
+        prompt = """
+        Act as an elite Egyptian OSINT, computer vision, and geolocation expert. We are running a two-stage analysis pipeline.
+
+        STAGE 1 INSTRUCTIONS (Visual Feature Extraction):
+        Analyze the provided image strictly as a computer vision expert. Extract and describe everything visible:
+        - Any vehicle license plates (letters and numbers if visible).
+        - Any water bodies (are there waves meaning Mediterranean? light ripples meaning Red Sea? calm water meaning Nile River? or still pure water meaning a lake?).
+        - Building styles, architecture, vegetation, road conditions, and lighting/shadows.
+
+        STAGE 2 INSTRUCTIONS (Egyptian Geolocation & Mapping):
+        Using the extracted visual data, apply comprehensive Egyptian mapping rules:
+        - EGYPTIAN LICENSE PLATES CODES: Cairo (3 letters, 3 numbers), Giza (2 letters, 4 numbers), Regional (3 letters, 4 numbers like ن for Minia, س for Alexandria, ر for الشرقية, etc., and ط for Canal/Sinai).
+        - ENVIRONMENTAL RULES: Waves = Mediterranean, Ripples = Red Sea, Calm river = Nile, Pure enclosed water = Lakes.
+
+        Return your final analysis STRICTLY as a valid JSON object without any extra markdown formatting or backticks, with these exact keys:
+        - "governorate": The most likely Egyptian governorate in Arabic.
+        - "city": The most likely city or neighborhood in Arabic.
+        - "confidence_score": An integer representing confidence percentage.
+        - "details": A detailed explanation in Arabic of how the visual features mapped to this location.
+        - "google_maps_query": A specific search query for Google Maps based on the location.
+        - "top_governorates": A dictionary containing 3 alternative Egyptian governorates and their probability percentages summing up to 100 (e.g. {"المنيا": 70, "بني سويف": 20, "أسيوط": 10}).
+        """
+
+        with st.spinner("🔄 جارِ معالجة الصورة عبر محرك Gemini 2.5-Flash..."):
+            try:
+                response = model.generate_content([prompt, image])
+                raw_text = response.text.replace("```json", "").replace("```", "").strip()
+                result = json.loads(raw_text)
                 
-                with st.status("🔄 جاري فحص العناصر الاستخباراتية...", expanded=True) as status:
-                    st.write("🔍 **المرحلة الأولى:** قراءة نمر اللوحات المعدنية ومؤشرات الإضاءة والمسطحات المائية...")
-                    time.sleep(1.5)
-                    st.write("🧠 **المرحلة الثانية:** تطبيق قواعد الترشيح الجغرافي لمحافظات مصر...")
-                    time.sleep(1.5)
-                    status.update(label="✅ اكتمل التحليل بنجاح!", state="complete", expanded=False)
+                st.success("✅ تم تحليل الصورة بنجاح بواسطة الذكاء الاصطناعي الحقيقي!")
                 
-                st.success("تم إتمام فحص الصورة واستخراج التقرير بنجاح!")
+                # عرض التقرير الاستخباراتي
+                st.markdown("### 📊 تقرير التحليل البصري الاستخباراتي:")
+                st.info(result.get("details", "لا توجد تفاصيل متاحة."))
                 
-                # 1. التقرير الاستخباراتي
-                st.markdown("### 📊 تقرير التحليل البصري:")
-                st.info("• **تحليل اللوحات:** تم رصد لوحة برقم مميز يتبع النطاق الإقليمي.\n• **التحليل البيئي:** المسطح المائي يظهر مياه هادئة وساكنة تدل على مجرى نهر النيل.\n• **العمران:** طراز مباني يعكس الطابع السكني المصري التقليدي.")
+                gov = result.get("governorate", "غير محدد")
+                city = result.get("city", "غير محدد")
+                conf = result.get("confidence_score", 0)
                 
-                # 2. الرسم البياني للمحافظات
+                st.metric(label="🎯 المحافظة المستخلصة", value=gov, delta=f"نسبة ثقة: {conf}%")
+                st.write(گف := f"**المدينة / المنطقة المقترحة:** {city}")
+                
+                # الرسم البياني للمحافظات
                 st.markdown("### 📈 مؤشرات ترجيح المحافظات المصرية:")
-                gov_data = {
-                    "المحافظة": ["المنيا", "بني سويف", "أسيوط", "القاهرة"],
-                    "نسبة المطابقة (%)": [72, 18, 7, 3]
-                }
-                fig_gov = px.bar(gov_data, x="المحافظة", y="نسبة المطابقة (%)", color="المحافظة", title="نسب المطابقة الإحصائية للمحافظات")
+                top_govs = result.get("top_governorates", {gov: conf})
+                
+                gov_names = list(top_govs.keys())
+                gov_probs = list(top_govs.values())
+                
+                fig_gov = px.bar(
+                    x=gov_names, 
+                    y=gov_probs, 
+                    labels={'x': 'المحافظة', 'y': 'نسبة المطابقة (%)'},
+                    color=gov_names, 
+                    title="تحليل احتمالية التوزيع الجغرافي"
+                )
                 st.plotly_chart(fig_gov, use_container_width=True)
                 
-                st.warning("🎯 **الترشيح الأقوى:** محافظة **المنيا** - مدينة **المنيا الأم (منطقة الكورنيش)**")
-                
                 st.divider()
                 
-                # 3. زر خرائط جوجل
-                maps_url = "https://www.google.com/maps/place/Minia,+El-Minia+Governorate"
+                # رابط خرائط جوجل الذكي
+                maps_query = result.get("google_maps_query", "Egypt")
+                maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
                 st.markdown(f'<a href="{maps_url}" target="_blank"><button style="background-color:#00ffcc; color:#0e1117; padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">فتح الموقع المستخلص على Google Maps 🌍</button></a>', unsafe_allow_html=True)
-                
-                st.divider()
-                
-                # 4. معرض الصور الاستخباراتي (من 1 لـ 4 صور)
-                st.markdown("### 🖼️ معرض الأرشيف البصري للمكان المطابق:")
-                img_cols = st.columns(4)
-                sample_images = [
-                    "https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=500&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1514565131-fce0801e5785?q=80&w=500&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=500&auto=format&fit=crop",
-                    "https://images.unsplash.com/photo-1477959858617-67f30bc47b82?q=80&w=500&auto=format&fit=crop"
-                ]
-                
-                for idx, col in enumerate(img_cols):
-                    with col:
-                        st.image(sample_images[idx], caption=f"صورة مرجعية #{idx+1}", use_container_width=True)
-                
-            else:
-                st.error("عذراً، نفد رصيد هذا الكود!")
 
-if check_access():
-    main_interface()
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء تحليل الصورة بواسطة الذكاء الاصطناعي: {e}")
+                st.text(fاستجابة الخام: {response.text if 'response' in locals() else 'لا توجد استجابة'})
